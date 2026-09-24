@@ -11,6 +11,7 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Prefer32Bit>false</Prefer32Bit>
     <LangVersion>5</LangVersion>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
@@ -39,6 +40,7 @@
     <Compile Include="TrayApplicationContext.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.ico" />
     <None Include="README.md" />
     <None Include="Tests\PathConverterTests.cs" />
   </ItemGroup>

@@ -70,7 +70,7 @@ namespace WslPathConverter
 
             tray = new NotifyIcon
             {
-                Icon = SystemIcons.Application,
+                Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath),
                 Text = "WSL 路径转换器",
                 ContextMenuStrip = menu,
                 Visible = true
