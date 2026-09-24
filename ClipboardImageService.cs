@@ -17,7 +17,7 @@ namespace WslPathConverter
                 var directory = Path.GetDirectoryName(targetPath);
                 if (string.IsNullOrEmpty(directory))
                 {
-                    error = "The image save directory is invalid.";
+                    error = "图片保存目录无效。";
                     return false;
                 }
                 Directory.CreateDirectory(directory);
@@ -26,7 +26,7 @@ namespace WslPathConverter
                 {
                     if (source == null)
                     {
-                        error = "The clipboard image could not be read.";
+                        error = "无法读取剪贴板图片。";
                         return false;
                     }
 
@@ -46,7 +46,7 @@ namespace WslPathConverter
                         }
                     }
                 }
-                error = "Could not save the clipboard image. The target file may be locked or inaccessible.";
+                error = "无法保存剪贴板图片，目标文件可能被占用或不可访问。";
                 return false;
             }
             catch (Exception ex)

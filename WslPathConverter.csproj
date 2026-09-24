@@ -28,6 +28,8 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="AppSettings.cs" />
+    <Compile Include="AutoStartService.cs" />
+    <Compile Include="MenuIcons.cs" />
     <Compile Include="NativeMethods.cs" />
     <Compile Include="GlobalHotkeyWindow.cs" />
     <Compile Include="PathConverter.cs" />

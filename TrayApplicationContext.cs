@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
@@ -16,6 +17,7 @@ namespace WslPathConverter
         private readonly ToolStripMenuItem imageEnabledItem;
         private readonly ToolStripMenuItem pathFormatMenu;
         private readonly ToolStripMenuItem hotkeyLabel;
+        private readonly ToolStripMenuItem autoStartItem;
         private readonly AppSettings settings;
         private readonly WslPathService wsl = new WslPathService();
         private readonly ClipboardImageService imageService = new ClipboardImageService();
@@ -26,51 +28,58 @@ namespace WslPathConverter
         {
             settings = AppSettings.Load();
             menu = new ContextMenuStrip();
-            menu.Items.Add("WSL Path Converter", null, delegate { });
+            menu.RenderMode = ToolStripRenderMode.System;
+            menu.Font = SystemFonts.MenuFont;
+            menu.ShowImageMargin = true;
+            menu.Items.Add("WSL 路径转换器", null, delegate { });
             menu.Items[0].Enabled = false;
             menu.Items.Add(new ToolStripSeparator());
             var distro = DetectDefaultDistro();
-            var distroItem = menu.Items.Add("Default distro: " + distro);
+            var distroItem = menu.Items.Add("默认发行版：" + distro);
             distroItem.Enabled = false;
-            hotkeyLabel = new ToolStripMenuItem("Hotkey: " + settings.Hotkey);
+            hotkeyLabel = new ToolStripMenuItem("快捷键：" + settings.Hotkey);
             menu.Items.Add(hotkeyLabel);
             hotkeyLabel.Enabled = false;
             menu.Items.Add(new ToolStripSeparator());
 
-            var hotkeyMenu = new ToolStripMenuItem("Conversion hotkey");
-            hotkeyMenu.DropDownItems.Add("Set conversion hotkey...", null, SetHotkey);
-            hotkeyMenu.DropDownItems.Add("Reset to Ctrl+Shift+V", null, ResetHotkey);
+            var hotkeyMenu = new ToolStripMenuItem("转换快捷键", MenuIcons.Get("hotkey"));
+            hotkeyMenu.DropDownItems.Add("设置转换快捷键...", null, SetHotkey);
+            hotkeyMenu.DropDownItems.Add("重置为 Ctrl+Shift+V", null, ResetHotkey);
             menu.Items.Add(hotkeyMenu);
 
-            imageMenu = new ToolStripMenuItem("Image processing");
-            imageEnabledItem = new ToolStripMenuItem("Enable image support", null, ToggleImageSupport);
+            imageMenu = new ToolStripMenuItem("图片处理", MenuIcons.Get("image"));
+            imageEnabledItem = new ToolStripMenuItem("启用图片支持", null, ToggleImageSupport);
             imageMenu.DropDownItems.Add(imageEnabledItem);
-            imageMenu.DropDownItems.Add("Set file name...", null, SetImageFileName);
-            imageMenu.DropDownItems.Add("Set save directory...", null, SetImageSaveDirectory);
-            pathFormatMenu = new ToolStripMenuItem("Path format");
-            pathFormatMenu.DropDownItems.Add("Plain path", null, delegate { SetPathFormat("plain"); });
-            pathFormatMenu.DropDownItems.Add("@ prefix", null, delegate { SetPathFormat("at"); });
-            pathFormatMenu.DropDownItems.Add("Double quotes", null, delegate { SetPathFormat("quoted"); });
+            imageMenu.DropDownItems.Add("设置文件名...", null, SetImageFileName);
+            imageMenu.DropDownItems.Add("设置保存目录...", null, SetImageSaveDirectory);
+            pathFormatMenu = new ToolStripMenuItem("路径格式", MenuIcons.Get("path"));
+            pathFormatMenu.DropDownItems.Add(CreateFormatItem("纯路径", "plain"));
+            pathFormatMenu.DropDownItems.Add(CreateFormatItem("@ 前缀", "at"));
+            pathFormatMenu.DropDownItems.Add(CreateFormatItem("双引号", "quoted"));
             imageMenu.DropDownItems.Add(pathFormatMenu);
             menu.Items.Add(imageMenu);
             UpdateImageMenu();
 
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("Open configuration folder", null, OpenConfigurationFolder);
-            menu.Items.Add("Exit", null, delegate { ExitThread(); });
+            autoStartItem = new ToolStripMenuItem("开机自启动", MenuIcons.Get("power"), ToggleAutoStart);
+            autoStartItem.Checked = AutoStartService.IsEnabled();
+            menu.Items.Add(autoStartItem);
+            menu.Items.Add("打开配置目录", MenuIcons.Get("folder"), OpenConfigurationFolder);
+            menu.Items.Add("退出", MenuIcons.Get("exit"), delegate { ExitThread(); });
+            menu.Opening += delegate { autoStartItem.Checked = AutoStartService.IsEnabled(); };
 
             tray = new NotifyIcon
             {
                 Icon = SystemIcons.Application,
-                Text = "WSL Path Converter",
+                Text = "WSL 路径转换器",
                 ContextMenuStrip = menu,
                 Visible = true
             };
-            tray.DoubleClick += delegate { tray.ShowBalloonTip(1500, "WSL Path Converter", "Press " + settings.Hotkey + " to convert and paste.", ToolTipIcon.Info); };
+            tray.DoubleClick += delegate { tray.ShowBalloonTip(1500, "WSL 路径转换器", "按 " + settings.Hotkey + " 转换并粘贴。", ToolTipIcon.Info); };
 
             hotkeyWindow = new GlobalHotkeyWindow(HotkeyId, HandleHotkey);
             RegisterConfiguredHotkey();
-            tray.ShowBalloonTip(1500, "WSL Path Converter", "Ready. Hotkey: " + settings.Hotkey, ToolTipIcon.Info);
+            tray.ShowBalloonTip(1500, "WSL 路径转换器", "已就绪。快捷键：" + settings.Hotkey, ToolTipIcon.Info);
         }
 
         private void HandleHotkey()
@@ -89,12 +98,12 @@ namespace WslPathConverter
                 var convertedImagePath = wsl.Convert(actual, true);
                 if (string.Equals(convertedImagePath, actual, StringComparison.OrdinalIgnoreCase))
                 {
-                    Notify("Could not convert image path: " + actual, ToolTipIcon.Error);
+                    Notify("无法转换图片路径：" + actual, ToolTipIcon.Error);
                     return;
                 }
                 PasteText(PathConverter.FormatImagePath(convertedImagePath, settings.ImagePathFormat), true);
                 if (!string.Equals(actual, target, StringComparison.OrdinalIgnoreCase))
-                    Notify("Image file was locked; saved as: " + actual, ToolTipIcon.Info);
+                    Notify("图片文件被占用；已另存为：" + actual, ToolTipIcon.Info);
                 return;
             }
 
@@ -170,7 +179,7 @@ namespace WslPathConverter
                 settings.Hotkey = "Ctrl+Shift+V";
                 hotkeyWindow.Register(NativeMethods.ModControl | NativeMethods.ModShift, Keys.V);
             }
-            hotkeyLabel.Text = "Hotkey: " + settings.Hotkey;
+            hotkeyLabel.Text = "快捷键：" + settings.Hotkey;
         }
 
         private static bool TryParseHotkey(string value, out uint modifiers, out Keys key)
@@ -200,12 +209,12 @@ namespace WslPathConverter
             uint modifiers; Keys key;
             if (!TryParseHotkey(value, out modifiers, out key) || !hotkeyWindow.Register(modifiers, key))
             {
-                Notify("The hotkey is invalid or already in use.", ToolTipIcon.Error);
+                Notify("快捷键无效或已被占用。", ToolTipIcon.Error);
                 return;
             }
             settings.Hotkey = value;
             settings.Save();
-            hotkeyLabel.Text = "Hotkey: " + value;
+            hotkeyLabel.Text = "快捷键：" + value;
         }
 
         private void ResetHotkey(object sender, EventArgs e)
@@ -222,6 +231,27 @@ namespace WslPathConverter
             UpdateImageMenu();
         }
 
+        private void ToggleAutoStart(object sender, EventArgs e)
+        {
+            try
+            {
+                AutoStartService.SetEnabled(!AutoStartService.IsEnabled());
+            }
+            catch (Exception ex)
+            {
+                Notify("无法修改开机自启动设置：" + ex.Message, ToolTipIcon.Error);
+            }
+            autoStartItem.Checked = AutoStartService.IsEnabled();
+        }
+
+        private ToolStripMenuItem CreateFormatItem(string text, string format)
+        {
+            var item = new ToolStripMenuItem(text);
+            item.Tag = format;
+            item.Click += delegate { SetPathFormat(format); };
+            return item;
+        }
+
         private void SetImageFileName(object sender, EventArgs e)
         {
             string value;
@@ -232,7 +262,7 @@ namespace WslPathConverter
 
         private void SetImageSaveDirectory(object sender, EventArgs e)
         {
-            using (var dialog = new FolderBrowserDialog { SelectedPath = settings.ImageSaveDirectory, Description = "Select the image save directory" })
+            using (var dialog = new FolderBrowserDialog { SelectedPath = settings.ImageSaveDirectory, Description = "选择图片保存目录" })
             {
                 if (dialog.ShowDialog() != DialogResult.OK) return;
                 settings.ImageSaveDirectory = dialog.SelectedPath;
@@ -251,7 +281,7 @@ namespace WslPathConverter
         {
             imageEnabledItem.Checked = settings.ImageEnabled;
             foreach (ToolStripMenuItem item in pathFormatMenu.DropDownItems)
-                item.Checked = item.Text.Equals(settings.ImagePathFormat == "at" ? "@ prefix" : settings.ImagePathFormat == "quoted" ? "Double quotes" : "Plain path", StringComparison.Ordinal);
+                item.Checked = string.Equals(item.Tag as string, settings.ImagePathFormat, StringComparison.Ordinal);
         }
 
         private void OpenConfigurationFolder(object sender, EventArgs e)
@@ -261,14 +291,14 @@ namespace WslPathConverter
 
         private void Notify(string message, ToolTipIcon icon)
         {
-            tray.ShowBalloonTip(3000, "WSL Path Converter", message, icon);
+            tray.ShowBalloonTip(3000, "WSL 路径转换器", message, icon);
         }
 
         private static string DetectDefaultDistro()
         {
             try
             {
-                var info = new ProcessStartInfo("wsl.exe", "-l -q") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+                var info = new ProcessStartInfo("wsl.exe", "-l -q") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, StandardOutputEncoding = Encoding.Unicode };
                 using (var process = Process.Start(info))
                 {
                     var output = process.StandardOutput.ReadToEnd();
@@ -278,7 +308,7 @@ namespace WslPathConverter
                 }
             }
             catch { }
-            return "Unknown";
+            return "未知";
         }
 
         protected override void ExitThreadCore()
